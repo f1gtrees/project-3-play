@@ -1,0 +1,233 @@
+/* =============================================================================
+   ROOM DATA — combat-test (big-image room)
+   Edited in World Builder (tools/world-builder/). Plain data, so World
+   Builder can open it again.
+
+   Floor: ONE picture (../test-world/assets/combat-test-2.png), 800×800 art px.
+   Props: separate pictures placed on top. anchorX/anchorY = each prop's base
+   point inside its picture (where it meets the ground); block = its
+   invisible blocking box, relative to that base point. All positions are in
+   ART PIXELS. The big-image fields are read by the game, ignored by engine.js.
+   ============================================================================= */
+Engine.registerRoom('combat-test', function buildRoom(spawnX, spawnY) {
+  return {
+    floorImage: 'floor',
+    manifest: {
+      floor: '../test-world/assets/combat-test-2.png',
+      hut: '../test-world/assets/hut-green.png',
+      cube: '../test-world/assets/metal-cube.png',
+      tileset_perfect_isometric_revision: '../../assets/Tileset Perfect isometric Revision.png',
+      tileset: '../../assets/Tileset.png',
+      tree1: 'assets/Tree1.png',
+      tree2: 'assets/Tree2.png',
+      tree3: 'assets/Tree3.png',
+      blood_desert_tileset: 'assets/Blood Desert Tileset.png'
+    },
+    width: 800, height: 800,          // art px — the room's size if it was resized (customSize), or if the floor picture is missing
+    fallbackColor: '#583400',  // greybox colour if the floor picture is missing
+    swarm: {waves: 3, firstWave: 12, addPerWave: 6, groupSize: 6, spawnEvery: 2, breakTime: 10, startDelay: 10, toughness: 25, speedUp: 5, type: "warrior", boss: {type: "archer", hp: 20, speed: 25, damage: 2.5, size: 2}, waveList: [{enemies: [{type: "warrior", count: 48}, {type: "guard", count: 6}]}, {enemies: [{type: "warrior", count: 48, hp: 110, damage: 105}, {type: "guard", count: 6, speed: 125}]}, {enemies: [{type: "warrior", count: 48, hp: 110, damage: 105, speed: 125}, {type: "guard", count: 6, speed: 125, hp: 125, damage: 125}]}]},
+    vendor: "always",
+    introText: "arrival",
+    customSize: true,
+    floorX: 100,
+    floorY: 100,
+    // Enemies: type, where, which zone group; hp / speed / attacks only when different from the type's normal numbers.
+    enemySpawns: [
+
+    ],
+    // Portals: walk onto one to travel to another room (to), arriving next to its portal toPortal.
+    portals: [
+      {id: "p2", x: 533, y: 146, to: "test-world"}
+    ],
+    // Loot boxes: press and hold on one to open it — contents, money, and what happens after.
+    lootBoxes: [
+      {id: "box1", x: 337, y: 155, box: "specialChest", after: "stay", respawnSeconds: 60}
+    ],
+    // Walls: invisible blocking boxes with no picture (x, y = top-left corner).
+    walls: [
+      {x: 91, y: 87, w: 8, h: 641},
+      {x: 121, y: 82, w: 603, h: 10},
+      {x: 696, y: 93, w: 10, h: 623},
+      {x: 90, y: 709, w: 624, h: 6}
+    ],
+    // Zones: enemies in a group stay inside their zone.
+    enemyZones: [
+
+    ],
+
+    propTypes: {
+      hut: {image: "hut", anchorX: 36, anchorY: 62, block: {x: -19, y: -12, w: 38, h: 13}, fallbackColor: "#222"},
+      cube: {image: "cube", anchorX: 11, anchorY: 19, block: {x: -10, y: -7, w: 20, h: 8}, fallbackColor: "#333"},
+      blocks: {image: "tileset_perfect_isometric_revision", src: {x: 16, y: 0, w: 80, h: 16}, anchorX: 40, anchorY: 15, block: {x: -40, y: -5, w: 77, h: 5}, fallbackColor: "#333"},
+      leaning_cross: {image: "tileset", src: {x: 3, y: 171, w: 45, h: 53}, anchorX: 17, anchorY: 49, block: {x: -2, y: -3, w: 5, h: 3}, fallbackColor: "#333"},
+      hut_yellow: {image: "tileset", src: {x: 52, y: 137, w: 74, h: 65}, anchorX: 37, anchorY: 64, block: {x: -30, y: -12, w: 59, h: 13}, fallbackColor: "#333"},
+      grass: {image: "tileset", src: {x: 144, y: 95, w: 17, h: 18}, anchorX: 7, anchorY: 12, block: null, fallbackColor: "#333"},
+      blood_desert_tileset_1: {image: "tree1", src: {x: 0, y: 0, w: 106, h: 70}, anchorX: 53, anchorY: 69, block: null, fallbackColor: "#333"},
+      tree2: {image: "tree2", src: {x: 0, y: 0, w: 106, h: 56}, anchorX: 53, anchorY: 55, block: null, fallbackColor: "#333"},
+      tree3: {image: "tree3", src: {x: 0, y: 16, w: 106, h: 56}, anchorX: 53, anchorY: 55, block: null, fallbackColor: "#333"},
+      smalltree: {image: "blood_desert_tileset", src: {x: 86, y: 114, w: 22, h: 29}, anchorX: 11, anchorY: 28, block: {x: -9, y: -5, w: 18, h: 6}, fallbackColor: "#333"},
+      crosslight: {image: "blood_desert_tileset", src: {x: 176, y: 154, w: 32, h: 38}, anchorX: 16, anchorY: 37, block: {x: -5, y: -6, w: 8, h: 7}, fallbackColor: "#333"},
+      hand: {image: "blood_desert_tileset", src: {x: 80, y: 256, w: 47, h: 46}, anchorX: 17, anchorY: 44, block: {x: -7, y: -6, w: 16, h: 7}, fallbackColor: "#333"},
+      skull: {image: "blood_desert_tileset", src: {x: 269, y: 210, w: 97, h: 58}, anchorX: 43, anchorY: 56, block: {x: -43, y: -18, w: 77, h: 19}, fallbackColor: "#333"},
+      grass2: {image: "blood_desert_tileset", src: {x: 105, y: 10, w: 29, h: 24}, anchorX: 4, anchorY: 5, block: null, fallbackColor: "#333"}
+    },
+
+    props: [
+      {type: "grass", x: 550, y: 386},
+      {type: "grass", x: 452, y: 384},
+      {type: "grass", x: 381, y: 426},
+      {type: "grass", x: 437, y: 484},
+      {type: "grass", x: 325, y: 298},
+      {type: "grass", x: 266, y: 402},
+      {type: "grass", x: 139, y: 437},
+      {type: "grass", x: 197, y: 588},
+      {type: "grass", x: 361, y: 503},
+      {type: "grass", x: 257, y: 446},
+      {type: "grass", x: 190, y: 370},
+      {type: "grass", x: 225, y: 239},
+      {type: "grass", x: 496, y: 288},
+      {type: "grass", x: 389, y: 276},
+      {type: "grass", x: 308, y: 229},
+      {type: "grass", x: 496, y: 407},
+      {type: "grass", x: 526, y: 567},
+      {type: "grass", x: 305, y: 558},
+      {type: "grass", x: 173, y: 462},
+      {type: "grass", x: 123, y: 614},
+      {type: "cube", x: 334, y: 593},
+      {type: "cube", x: 252, y: 587},
+      {type: "blocks", x: 130, y: 99},
+      {type: "blocks", x: 274, y: 391},
+      {type: "cube", x: 404, y: 556},
+      {type: "cube", x: 384, y: 496},
+      {type: "blocks", x: 530, y: 569},
+      {type: "grass", x: 550, y: 445},
+      {type: "grass", x: 544, y: 502},
+      {type: "grass", x: 667, y: 470},
+      {type: "grass", x: 665, y: 342},
+      {type: "grass", x: 523, y: 260},
+      {type: "grass", x: 439, y: 226},
+      {type: "grass", x: 273, y: 174},
+      {type: "grass", x: 138, y: 215},
+      {type: "grass", x: 180, y: 281},
+      {type: "grass", x: 359, y: 175},
+      {type: "grass", x: 611, y: 222},
+      {type: "grass", x: 622, y: 140},
+      {type: "grass", x: 561, y: 202},
+      {type: "grass", x: 500, y: 214},
+      {type: "grass", x: 425, y: 137},
+      {type: "grass", x: 443, y: 317},
+      {type: "grass", x: 502, y: 348},
+      {type: "grass", x: 455, y: 576},
+      {type: "grass", x: 426, y: 628},
+      {type: "grass", x: 497, y: 644},
+      {type: "grass", x: 646, y: 669},
+      {type: "grass", x: 647, y: 546},
+      {type: "grass", x: 619, y: 461},
+      {type: "grass", x: 644, y: 383},
+      {type: "grass", x: 613, y: 306},
+      {type: "grass", x: 577, y: 319},
+      {type: "grass", x: 549, y: 321},
+      {type: "cube", x: 308, y: 529},
+      {type: "tree2", x: 117, y: 722},
+      {type: "tree2", x: 169, y: 734},
+      {type: "tree2", x: 231, y: 731},
+      {type: "tree2", x: 247, y: 737},
+      {type: "tree2", x: 310, y: 734},
+      {type: "tree2", x: 366, y: 733},
+      {type: "tree2", x: 414, y: 726},
+      {type: "tree2", x: 472, y: 729},
+      {type: "tree2", x: 536, y: 725},
+      {type: "tree2", x: 570, y: 725},
+      {type: "tree2", x: 613, y: 709},
+      {type: "tree2", x: 670, y: 733},
+      {type: "tree3", x: 105, y: 687},
+      {type: "tree3", x: 65, y: 363},
+      {type: "tree3", x: 98, y: 534},
+      {type: "tree3", x: 57, y: 223},
+      {type: "tree3", x: 128, y: 137},
+      {type: "tree3", x: 190, y: 150},
+      {type: "tree3", x: 190, y: 128},
+      {type: "tree3", x: 282, y: 145},
+      {type: "tree3", x: 247, y: 128},
+      {type: "tree3", x: 379, y: 139},
+      {type: "tree3", x: 326, y: 118},
+      {type: "tree3", x: 445, y: 140},
+      {type: "tree3", x: 431, y: 145},
+      {type: "tree3", x: 528, y: 137},
+      {type: "tree3", x: 606, y: 147},
+      {type: "tree3", x: 667, y: 142},
+      {type: "tree3", x: 569, y: 119},
+      {type: "tree3", x: 671, y: 122},
+      {type: "tree3", x: 117, y: 157},
+      {type: "blood_desert_tileset_1", x: 86, y: 233},
+      {type: "blood_desert_tileset_1", x: 74, y: 286},
+      {type: "blood_desert_tileset_1", x: 104, y: 282},
+      {type: "blood_desert_tileset_1", x: 136, y: 300},
+      {type: "blood_desert_tileset_1", x: 76, y: 246},
+      {type: "blood_desert_tileset_1", x: 87, y: 354},
+      {type: "blood_desert_tileset_1", x: 61, y: 311},
+      {type: "blood_desert_tileset_1", x: 92, y: 369},
+      {type: "blood_desert_tileset_1", x: 100, y: 373},
+      {type: "blood_desert_tileset_1", x: 114, y: 373},
+      {type: "blood_desert_tileset_1", x: 105, y: 393},
+      {type: "blood_desert_tileset_1", x: 108, y: 435},
+      {type: "blood_desert_tileset_1", x: 101, y: 455},
+      {type: "blood_desert_tileset_1", x: 101, y: 457},
+      {type: "blood_desert_tileset_1", x: 88, y: 512},
+      {type: "blood_desert_tileset_1", x: 84, y: 487},
+      {type: "blood_desert_tileset_1", x: 106, y: 422},
+      {type: "blood_desert_tileset_1", x: 73, y: 199},
+      {type: "blood_desert_tileset_1", x: 145, y: 489},
+      {type: "blood_desert_tileset_1", x: 105, y: 537},
+      {type: "blood_desert_tileset_1", x: 110, y: 582},
+      {type: "blood_desert_tileset_1", x: 108, y: 620},
+      {type: "blood_desert_tileset_1", x: 98, y: 619},
+      {type: "blood_desert_tileset_1", x: 145, y: 645},
+      {type: "blood_desert_tileset_1", x: 90, y: 665},
+      {type: "blood_desert_tileset_1", x: 94, y: 646},
+      {type: "blood_desert_tileset_1", x: 704, y: 708},
+      {type: "blood_desert_tileset_1", x: 702, y: 691},
+      {type: "blood_desert_tileset_1", x: 703, y: 656},
+      {type: "blood_desert_tileset_1", x: 702, y: 620},
+      {type: "blood_desert_tileset_1", x: 703, y: 596},
+      {type: "blood_desert_tileset_1", x: 688, y: 600},
+      {type: "blood_desert_tileset_1", x: 701, y: 566},
+      {type: "blood_desert_tileset_1", x: 646, y: 539},
+      {type: "blood_desert_tileset_1", x: 720, y: 469},
+      {type: "blood_desert_tileset_1", x: 711, y: 445},
+      {type: "blood_desert_tileset_1", x: 727, y: 428},
+      {type: "blood_desert_tileset_1", x: 731, y: 405},
+      {type: "blood_desert_tileset_1", x: 714, y: 355},
+      {type: "blood_desert_tileset_1", x: 715, y: 308},
+      {type: "blood_desert_tileset_1", x: 717, y: 291},
+      {type: "blood_desert_tileset_1", x: 738, y: 265},
+      {type: "blood_desert_tileset_1", x: 714, y: 189},
+      {type: "blood_desert_tileset_1", x: 693, y: 148},
+      {type: "blood_desert_tileset_1", x: 731, y: 225},
+      {type: "blood_desert_tileset_1", x: 712, y: 499},
+      {type: "blood_desert_tileset_1", x: 706, y: 519},
+      {type: "grass2", x: 219, y: 197},
+      {type: "grass2", x: 231, y: 219},
+      {type: "grass2", x: 274, y: 205},
+      {type: "grass2", x: 277, y: 262},
+      {type: "grass2", x: 244, y: 264},
+      {type: "grass2", x: 212, y: 254},
+      {type: "grass2", x: 259, y: 233},
+      {type: "grass2", x: 316, y: 237},
+      {type: "grass2", x: 304, y: 191},
+      {type: "grass2", x: 252, y: 186},
+      {type: "skull", x: 270, y: 250},
+      {type: "crosslight", x: 182, y: 671},
+      {type: "crosslight", x: 229, y: 189},
+      {type: "hand", x: 489, y: 450}
+    ],
+
+    // Player start. x = center, y = feet.
+    player: {
+      x: spawnX !== undefined ? spawnX : 533,
+      y: spawnY !== undefined ? spawnY : 179,
+      w: 14, h: 18,
+      color: '#7fd1ff'
+    }
+  };
+});

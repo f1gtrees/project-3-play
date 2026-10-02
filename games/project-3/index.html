@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Project 3</title>
+<style>
+  html, body {
+    margin: 0; padding: 0; background: #000; overflow: hidden;
+    height: 100%; width: 100%;
+    -webkit-user-select: none; user-select: none;
+  }
+  canvas {
+    display: block;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    touch-action: none; /* stop the browser from panning/zooming on drag */
+  }
+  #status {
+    position: fixed; top: 6px; left: 6px; color: #9f9; font: 11px monospace;
+    background: rgba(0,0,0,0.6); padding: 4px 8px; border-radius: 4px;
+    z-index: 1001; /* above the engine's black fade overlay (999), so errors stay visible */
+    max-width: 90vw; white-space: pre-wrap;
+    pointer-events: none; /* dev readout only — touches pass straight through */
+  }
+  /* The movable ACTION button (action-button.js). Placeholder look. */
+  .action-btn {
+    position: fixed; z-index: 10; border-radius: 50%;
+    font: bold 13px monospace; color: #fff;
+    background: rgba(110,230,255,0.18); border: 2px solid rgba(110,230,255,0.75);
+    touch-action: none; -webkit-tap-highlight-color: transparent;
+    -webkit-user-select: none; user-select: none;
+  }
+  .action-btn.held { background: rgba(110,230,255,0.45); }
+  .action-btn.moving { border-color: #ffcc55; background: rgba(255,204,85,0.3); transform: scale(1.12); }
+  /* HUD: health blocks + wallet + wave counter (hud.js). Double-tap one to move it. */
+  .hud-box {
+    position: fixed; z-index: 9; display: flex; align-items: center; gap: 4px;
+    padding: 3px 4px; border-radius: 4px; background: rgba(0,0,0,0.45);
+    touch-action: none; -webkit-user-select: none; user-select: none;
+  }
+  .hud-box.moving { outline: 2px solid #ffcc55; background: rgba(255,204,85,0.3); }
+  .hud-health i { display: block; width: 12px; height: 12px; background: #3a2a2a; }
+  .hud-health i.full { background: #ff5c5c; }
+  /* the money picture (combat.js HERO_COMBAT.money.icon — the page sets --money-icon from it) */
+  .hud-coin { display: block; width: 14px; height: 12px; background: var(--money-icon, url(assets/ui/skull.png)) no-repeat center / contain; image-rendering: pixelated; }
+  .hud-money { font: bold 12px monospace; color: #ffe28a; min-width: 22px; padding-right: 2px; }
+  .hud-minimap { padding: 0; background: none; line-height: 0; }
+  .hud-minimap canvas { display: block; image-rendering: auto; }
+  .hud-swarm-text { font: bold 12px monospace; color: #ffe28a; white-space: nowrap; padding: 0 3px; }
+  /* PAUSE button: a small square version of the action button */
+  .action-btn.pause-btn { border-radius: 8px; background: rgba(0,0,0,0.45); border-color: rgba(255,255,255,0.6); letter-spacing: -1px; }
+  /* MENU screens (menu.js) */
+  .menu-screen { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center;
+    background: rgba(0,0,0,0.6); touch-action: none; -webkit-user-select: none; user-select: none; }
+  .menu-screen.hidden { display: none; }
+  /* Panels and item cards use the pack's pixel frames (assets/ui) as stretchy borders. */
+  .menu-panel { width: min(300px, 86vw); max-height: 86vh; overflow-y: auto; padding: 14px 12px; background: #1c1a22; background-clip: padding-box;
+    border: 12px solid transparent; border-image: url(assets/ui/panel.png) 6 fill / 12px stretch; image-rendering: pixelated; }
+  .menu-title { margin: 0 0 12px; text-align: center; font: bold 18px monospace; color: #ffe28a; letter-spacing: 2px; }
+  .menu-header { margin: -4px 0 10px; }
+  .menu-items { display: flex; flex-direction: column; gap: 8px; }
+  .menu-btn { font: bold 15px monospace; color: #fff; padding: 10px 12px; text-align: center; background: rgba(110,230,255,0.10); background-clip: padding-box;
+    border: 8px solid transparent; border-image: url(assets/ui/card.png) 5 fill / 8px stretch; image-rendering: pixelated; -webkit-tap-highlight-color: transparent; }
+  .menu-btn:active { background-color: rgba(255,226,138,0.25); border-image-source: url(assets/ui/card-selected.png); }
+  .menu-btn.soon, .menu-btn:disabled { color: #777; filter: grayscale(1) brightness(0.7); }
+  .menu-btn small { display: block; font-size: 10px; font-weight: normal; margin-top: 2px; }
+  .menu-btn.on { background-color: rgba(110,230,255,0.35); border-image-source: url(assets/ui/card-selected.png); }
+  .menu-btn.back { color: #ccc; background: transparent; }
+  .menu-btn.rich, .menu-info.rich { display: flex; align-items: center; gap: 8px; text-align: left; }
+  .menu-main { flex: 1; min-width: 0; }
+  .menu-main b { display: block; }
+  .menu-main small { display: block; font: 11px monospace; color: #cfc7b0; margin-top: 2px; }
+  .menu-main small.menu-bad { color: #ff8a80; }
+  .item-ico { flex: none; background-repeat: no-repeat; image-rendering: pixelated; }
+  .menu-right { font: bold 14px monospace; color: #ffe28a; white-space: nowrap; display: flex; align-items: center; gap: 4px; }
+  .menu-info { font: 13px monospace; color: #eee; padding: 2px 6px; }
+  .menu-info.menu-section { color: #ffe28a; font-weight: bold; border-bottom: 1px solid #4a4250; padding: 6px 2px 3px; margin-top: 2px; }
+  /* TEXT BOXES (dialogue.js) */
+  .talk-screen { position: fixed; inset: 0; z-index: 60; touch-action: none; -webkit-user-select: none; user-select: none; }
+  .talk-screen.hidden { display: none; }
+  .talk-box { position: absolute; box-sizing: border-box; padding: 10px 12px 18px; background: rgba(20,18,26,0.94); background-clip: padding-box;
+    border: 12px solid transparent; border-image: url(assets/ui/panel.png) 6 fill / 12px stretch; image-rendering: pixelated; }
+  .talk-name { position: absolute; top: -20px; left: 8px; padding: 2px 10px; font: bold 13px monospace; color: #1c1a22; background: #ffe28a; border-radius: 4px; }
+  .talk-row { display: flex; gap: 10px; align-items: flex-start; }
+  .talk-icon { flex: none; }
+  .talk-text { font: 15px/1.4 monospace; color: #f4efe2; white-space: pre-wrap; }
+  .talk-next { position: absolute; right: 10px; bottom: 2px; font: 12px monospace; color: #ffe28a; animation: talkblink 0.9s infinite; }
+  @keyframes talkblink { 50% { opacity: 0.2; } }
+  .chest-show { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 65; touch-action: none; }
+  .chest-show.hidden { display: none; }
+  .menu-info.sold-slot { text-align: center; color: #8a8290; font-style: italic; border: 2px dashed #4a4250; padding: 12px 6px; }
+  .coin-ico.big-coin { width: 28px; height: 24px; margin: 0 4px; }
+  .menu-btn.take-all { color: #ffe28a; }
+  .menu-wallet { display: flex; align-items: center; justify-content: center; gap: 6px; font: bold 16px monospace; color: #ffe28a; }
+  .menu-hp { margin-left: 14px; color: #ff8080; }
+  .coin-ico { display: inline-block; width: 14px; height: 12px; background: var(--money-icon, url(assets/ui/skull.png)) no-repeat center / contain; image-rendering: pixelated; }
+  /* cooling down: dim, with a dark wedge that shrinks as it refills */
+  .action-btn.cooling {
+    color: rgba(255,255,255,0.5);
+    background: conic-gradient(rgba(0,0,0,0.45) var(--cd, 0deg), rgba(110,230,255,0.18) 0);
+  }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="status">loading…</div>
+
+<!-- ON-SCREEN ERROR REPORTER (dev aid): any script error or failed file load
+     shows up in the status box on the phone itself. Must come FIRST. -->
+<script>
+  function reportProblem(msg) {
+    const el = document.getElementById('status');
+    el.style.color = '#f88';
+    el.textContent = 'ERROR: ' + msg;
+  }
+  window.addEventListener('error', e => {
+    if (e.message) reportProblem(e.message + (e.lineno ? ' (line ' + e.lineno + ')' : ''));
+  });
+  window.addEventListener('unhandledrejection', e => {
+    reportProblem(e.reason && e.reason.message ? e.reason.message : String(e.reason));
+  });
+</script>
+
+<!-- ENGINE CORE: shared, generic, not changed by this step. -->
+<script src="../../engine/engine.js?v=1" onerror="reportProblem('could not load engine.js — expected at game-engine/engine/engine.js')"></script>
+
+<!-- GAME CODE: Project 3's own files. -->
+<script src="game-config.js?v=43" onerror="reportProblem('could not load game-config.js — expected next to this index.html')"></script>
+<script src="big-room.js?v=43" onerror="reportProblem('could not load big-room.js — expected next to this index.html')"></script>
+<script src="drag-input.js?v=43" onerror="reportProblem('could not load drag-input.js — expected next to this index.html')"></script>
+<script src="sprite-anim.js?v=43" onerror="reportProblem('could not load sprite-anim.js — expected next to this index.html')"></script>
+<script src="hero-data.js?v=43" onerror="reportProblem('could not load hero-data.js — expected next to this index.html')"></script>
+<script src="enemy-data.js?v=43" onerror="reportProblem('could not load enemy-data.js — expected next to this index.html')"></script>
+<script src="combat.js?v=43" onerror="reportProblem('could not load combat.js — expected next to this index.html')"></script>
+<script src="specials.js?v=43" onerror="reportProblem('could not load specials.js — expected next to this index.html')"></script>
+<script src="nav.js?v=43" onerror="reportProblem('could not load nav.js — expected next to this index.html')"></script>
+<script src="interact.js?v=43" onerror="reportProblem('could not load interact.js — expected next to this index.html')"></script>
+<script src="shop-data.js?v=43" onerror="reportProblem('could not load shop-data.js — expected next to this index.html')"></script>
+<script src="shop.js?v=43" onerror="reportProblem('could not load shop.js — expected next to this index.html')"></script>
+<script src="ui-theme.js?v=43" onerror="reportProblem('could not load ui-theme.js — expected next to this index.html')"></script>
+<script src="theme.js?v=43" onerror="reportProblem('could not load theme.js — expected next to this index.html')"></script>
+<script src="dialogue-data.js?v=43" onerror="reportProblem('could not load dialogue-data.js — expected next to this index.html')"></script>
+<script src="dialogue.js?v=43" onerror="reportProblem('could not load dialogue.js — expected next to this index.html')"></script>
+<script src="loot.js?v=43" onerror="reportProblem('could not load loot.js — expected next to this index.html')"></script>
+<script src="chest-show.js?v=43" onerror="reportProblem('could not load chest-show.js — expected next to this index.html')"></script>
+<script src="action-button.js?v=43" onerror="reportProblem('could not load action-button.js — expected next to this index.html')"></script>
+<script src="portals.js?v=43" onerror="reportProblem('could not load portals.js — expected next to this index.html')"></script>
+<script src="swarm.js?v=43" onerror="reportProblem('could not load swarm.js — expected next to this index.html')"></script>
+<script src="hud-layout.js?v=43" onerror="reportProblem('could not load hud-layout.js — expected next to this index.html (the HUD still shows, in its default spots)')"></script>
+<script src="movable.js?v=43" onerror="reportProblem('could not load movable.js — expected next to this index.html')"></script>
+<script src="menu.js?v=43" onerror="reportProblem('could not load menu.js — expected next to this index.html')"></script>
+<script src="hud.js?v=43" onerror="reportProblem('could not load hud.js — expected next to this index.html')"></script>
+<script src="tuning.js?v=43" onerror="reportProblem('could not load tuning.js — expected next to this index.html (the game still runs, with default numbers)')"></script>
+
+<script>
+  const statusEl = document.getElementById('status');
+  // Balance numbers from tuning.js (World Builder → Tuning) go on top of the defaults.
+  applyTuning(typeof TUNING !== 'undefined' ? TUNING : null);
+  // The look of menus, text boxes, mini map and HUD (ui-theme.js — World Builder → Style).
+  if (typeof UI_THEME !== 'undefined') applyTheme(UI_THEME, '');
+  if (HERO_COMBAT.money.icon) document.documentElement.style.setProperty('--money-icon', 'url("' + HERO_COMBAT.money.icon + '")'); // wallet / shop picture
+  // SPECIALS (specials.js): the hero's auto-firing special attacks, kept for the
+  // run. For now they're switched on for testing — in tuning.js (World Builder →
+  // Tuning → "On for testing") or live from the pause menu.
+  const specials = createSpecials(applySpecialTuning(typeof TUNING !== 'undefined' ? TUNING : null));
+  let heroAim = { x: 0, y: 1 }; // the way the hero last moved (fireball goes this way)
+  const canvas = document.getElementById('game');
+  const ctx = Engine.setupCanvas(canvas); // full-screen, sharp on retina, no smoothing
+
+  // ==========================================================================
+  // PIXEL SCALE
+  // This page draws in REAL screen pixels, so it can snap every art pixel to
+  // a whole number of them (crisp, even pixels). pxScale = screen pixels per
+  // art pixel; it comes from GAME_CONFIG.ART_SCALE and is re-checked every
+  // frame, so rotating the phone or resizing the window just works.
+  // ==========================================================================
+  function getView() {
+    const pxScale = computePixelScale(GAME_CONFIG.ART_SCALE, GAME_CONFIG.DESIGN_SHORT_SIDE);
+    return {
+      pxScale,
+      devW: canvas.width, devH: canvas.height,          // screen pixels
+      artW: canvas.width / pxScale, artH: canvas.height / pxScale // how much of the image fits on screen
+    };
+  }
+
+  // ==========================================================================
+  // INPUT — drag anywhere to walk (arrow keys / WASD on the Mac).
+  // Ignored while a room loads and for a moment after, so a thumb still
+  // down from before the fade doesn't carry into the room.
+  // ==========================================================================
+  const input = createDragInput(canvas);
+  const INPUT_LOCKOUT_MS = 400;
+  let inputReadyAt = Infinity;
+  function lockInput() { inputReadyAt = Infinity; input.cancel(); }
+  function unlockInput() { inputReadyAt = performance.now() + INPUT_LOCKOUT_MS; }
+
+  // ==========================================================================
+  // ROOMS — the engine's room manager loads rooms/<name>/room-data.js and
+  // its image, and handles the fade.
+  // ==========================================================================
+  let ROOM = null, ROOM_IMAGES = null, WORLD = { w: 0, h: 0 };
+  let transitioning = true;
+  let BLOCKERS = []; // the current room's invisible blocking boxes (art px)
+
+  // The hero sheet belongs to the whole game, not one room, so it's loaded
+  // once here (path is relative to this page — see hero-data.js).
+  let HERO_IMAGE = null;
+  let heroAnim = null;
+  let heroFacing = 'down'; // 'down' | 'up' | 'left' | 'right'
+
+  // Enemy sheets, loaded once (keyed by their path — see enemy-data.js).
+  let ENEMY_IMAGES = {};
+  let SPECIAL_IMAGES = {}; // special attacks' sheets, by path
+  let SHOP_IMAGES = {};    // the vendor and their talk bubble
+  let combat = null; // this room's fight (combat.js); inactive in rooms without enemies
+
+  // ACTION button — movable (press and hold, then drag). Fires an energy
+  // bolt (heroAction in combat.js), then refills.
+  const actionButton = createActionButton({
+    label: 'ACT',
+    storageKey: 'project3.actionButton',
+    layout: (hudLayout().elements || {}).act, stamp: hudLayout().stamp || 0, fit: hudFit, // hud-layout.js (World Builder → HUD)
+    onPress: () => { if (ROOM && combat && !transitioning && !paused && actOn) heroAction(combat, ROOM.player, heroFacing); }
+  });
+  actionButton.setVisible(false);
+  let actOn = true; // testing switch (pause menu → Testing): off = no ACT button at all
+
+  // PAUSE + MENUS (menu.js). The pause button is on screen everywhere (hub
+  // and fights) once it's switched on in World Builder → HUD. It opens the
+  // pause menu, which freezes the game. Later: inventory, settings, etc.
+  let paused = false;
+  const menu = createMenu({
+    onOpen: () => { paused = true; input.cancel(); },
+    onClose: () => { paused = false; }
+  });
+  menu.addPage('pause', {
+    title: 'PAUSED',
+    items: [
+      { label: 'Resume', close: true },
+      { label: 'Testing', page: 'testing' },
+      { label: 'Inventory', page: 'inventory' },
+      { label: 'Settings', soon: true }
+    ]
+  });
+  // Testing: switch the ACT button and each special on / off live
+  // (specials start as tuning.js says; ACT starts on).
+  menu.addPage('testing', {
+    title: 'TESTING',
+    items: () => [{
+      label: 'ACT button: ' + (actOn ? 'ON' : 'off'),
+      className: actOn ? 'on' : '',
+      action: () => { actOn = !actOn; actionButton.setVisible(!!(combat && combat.active) && actOn); }
+    }, {
+      label: 'Vendor: appear next to me',
+      action: () => {
+        if (!combat || !combat.active) return;
+        const p = ROOM.player;
+        shop.away = 0; shop.roomOk = true;
+        placeVendor(shop, p, BLOCKERS, WORLD, specials.owned, { x: Math.round(Math.min(WORLD.w - 20, p.x + 40)), y: Math.round(p.y) });
+        return 'close';
+      }
+    }, {
+      label: 'Money +50',
+      action: () => { heroState.money = (heroState.money || 0) + 50; }
+    }].concat(Object.keys(SPECIALS).map(id => ({
+      label: SPECIALS[id].label + ': ' + (specials.owned.has(id) ? 'ON' : 'off'),
+      className: specials.owned.has(id) ? 'on' : '',
+      action: () => toggleSpecial(specials, id)
+    })))
+  });
+  const pauseLayout = (hudLayout().elements || {}).pause || { visible: false }; // off until it's added in the HUD editor
+  const pauseButton = createActionButton({
+    label: 'II', className: 'pause-btn', size: 40, key: null, fireOnRelease: true,
+    storageKey: 'project3.pauseButton',
+    layout: pauseLayout, stamp: hudLayout().stamp || 0, fit: hudFit,
+    onPress: () => { if (!menu.isOpen()) menu.open('pause'); }
+  });
+  pauseButton.setVisible(true); // (stays hidden if the layout hides it)
+  // Mac: Escape or P opens / closes the pause menu
+  window.addEventListener('keydown', e => {
+    if (e.code !== 'Escape' && e.code !== 'KeyP') return;
+    if (talk.isOpen()) return;
+    if (menu.isOpen()) menu.close(); else menu.open('pause');
+  });
+
+  // The hero's health lives HERE, not in one room, so it carries through
+  // portals. The hub refills it.
+  const HUB_ROOM = GAME_CONFIG.HUB_ROOM || GAME_CONFIG.START_ROOM;
+  const heroState = { hp: HERO_COMBAT.maxHp, maxHp: HERO_COMBAT.maxHp, money: 0, mods: emptyMods() };
+  // THE VENDOR (shop.js + shop-data.js): appears in fight rooms; walk up to trade.
+  const shop = createShop();
+  // TEXT BOXES (dialogue.js + dialogue-data.js, World Builder → Text): pause, talk, carry on.
+  const talk = createDialogue({ onOpen: () => { paused = true; input.cancel(); }, onClose: () => { paused = false; } });
+  // PRESS AND HOLD ON THINGS (interact.js): the vendor and loot boxes. A press
+  // that lands on one doesn't steer the hero; the bar over it fills, and the
+  // menu opens when it's full. E held does the same for the nearest one (Mac).
+  const interact = createInteract();
+  let interactTargets = [], interactTouch = null, keyHold = false;
+  let viewCam = null;  // last frame's camera — to turn a press on the screen into a spot in the room
+  let runClock = 0;    // seconds played this run (loot boxes coming back)
+  let lootSession = null; // the loot box whose menu is open (loot.js — roomLootSession / boughtLootSession)
+  // the on-screen opening of a box (chest-show.js) — pauses the game like a menu
+  const chestShow = createChestShow({ onOpen: () => { paused = true; input.cancel(); }, onClose: () => { paused = false; } });
+  // Open a box type's menu — after its on-screen opening, if it has one.
+  function showLoot(T, S, playShow) {
+    const art = T && chestArt(T.chest), im = art && SHOP_IMAGES[art.path];
+    const go = () => {
+      lootSession = S;
+      if (S.st.offers) menu.open('loot');
+      else { S.finish(); if (combat && S.st.money) combat.banner = { title: '+' + S.st.money, sub: 'money found', t: 0, life: 1.2 }; }
+    };
+    if (playShow && T.show && art && im && im.ok) chestShow.play(art, im.img, go); else go();
+  }
+  let lastPhase = null, lastBoss = false; // to notice the swarm being beaten / the boss arriving
+  addLootPage(menu, () => lootSession, heroState, specials, shop, () => talk.playEvent('lootAfter'));
+  function pressAt(clientX, clientY) {
+    if (!viewCam || !ROOM || paused || transitioning) return false;
+    const k = canvas.width / canvas.clientWidth;
+    const pt = { x: (clientX * k + viewCam.x) / viewCam.s, y: (clientY * k + viewCam.y) / viewCam.s };
+    return interactPress(interact, interactTargets, pt, ROOM.player);
+  }
+  canvas.addEventListener('touchstart', e => {
+    const t = e.changedTouches[0];
+    if (interactTouch === null && pressAt(t.clientX, t.clientY)) { interactTouch = t.identifier; e.stopImmediatePropagation(); e.preventDefault(); }
+  }, { capture: true, passive: false });
+  const touchUp = e => { for (const t of e.changedTouches) if (t.identifier === interactTouch) { interactTouch = null; interactRelease(interact); } };
+  canvas.addEventListener('touchend', touchUp); canvas.addEventListener('touchcancel', touchUp);
+  canvas.addEventListener('mousedown', e => { if (pressAt(e.clientX, e.clientY)) { interactTouch = 'mouse'; e.stopImmediatePropagation(); } }, { capture: true });
+  window.addEventListener('mouseup', () => { if (interactTouch === 'mouse') { interactTouch = null; interactRelease(interact); } });
+  window.addEventListener('keydown', e => { if (e.code === 'KeyE') keyHold = true; });
+  window.addEventListener('keyup', e => { if (e.code === 'KeyE') keyHold = false; });
+  window.addEventListener('blur', () => { keyHold = false; interactTouch = null; interactRelease(interact); });
+  addShopPages(menu, shop, heroState, specials, { // the 'shop' and 'inventory' menu pages (+ text after buying / leaving)
+    // a loot box opens straight away; anything else gets the vendor's thank-you text
+    afterBuy: r => { if (r.box) showLoot(r.box, boughtLootSession(r.box, heroState, specials, shop), true); else talk.playEvent('vendorAfterBuy'); },
+    onLeave: () => talk.playEvent('vendorLeave')
+  });
+  const hud = createHud(); // health blocks + wallet + wave counter (hud.js) — double-tap one to move it
+
+  // PORTALS (portals.js). teleport = { phase: 'out' | 'in', t, portal } while dissolving / re-forming.
+  let teleport = null;
+  let portalArmed = false;   // false until the hero has stepped OFF every portal
+  let pendingArrival = null; // { fromRoom, toPortal } — set when leaving through a portal
+
+  // THE RUN: from leaving the hub until you're back there (or knocked out).
+  // Remembers, per room, which placed enemies you've killed and whether its
+  // swarm is beaten — so they stay that way until the run ends.
+  let runState = { rooms: {} };
+  function runRoomFor(name) {
+    return runState.rooms[name] || (runState.rooms[name] = { killed: new Set(), swarmCleared: false });
+  }
+  let lastView = null; // the part of the room on screen last frame (art px) — the swarm appears just outside it
+
+  // After a knock-out: tap anywhere to go back to the hub, fully healed.
+  function tryRestart() {
+    if (combat && combat.hero.ko && combat.hero.koTime > 0.8 && !transitioning && !paused) {
+      heroState.hp = heroState.maxHp;
+      pendingArrival = null;
+      goToRoom(HUB_ROOM);
+    }
+  }
+  canvas.addEventListener('touchstart', tryRestart);
+  canvas.addEventListener('mousedown', tryRestart);
+
+  const fade = Engine.initRoomManager({
+    roomsBasePath: 'rooms/',
+    version: GAME_CONFIG.ROOM_SCRIPT_VERSION,
+    onRoomReady: (room, images, name) => {
+      ROOM = room;
+      ROOM_IMAGES = images;
+      WORLD = getBigRoomSize(room, images);
+      const img = images[room.floorImage];
+      BLOCKERS = getPropBlockers(room).concat(getWallBlockers(room)); // props' blocking boxes + drawn walls
+      const problems = [];
+      if (!img || !img.ok) problems.push('floor image not found — expected games/project-3/' + room.manifest[room.floorImage]);
+      Object.keys(room.propTypes || {}).forEach(k => {
+        const key = room.propTypes[k].image;
+        if (!images[key] || !images[key].ok) problems.push('prop image not found — expected games/project-3/' + room.manifest[key]);
+      });
+      if (!HERO_IMAGE || !HERO_IMAGE.ok) problems.push('hero image not found — expected games/project-3/' + HERO_SHEET.path);
+      if (problems.length) reportProblem(problems.join('\n'));
+      else statusEl.textContent = name + ' · ' + WORLD.w + '×' + WORLD.h + ' art px · ' + Math.round(GAME_CONFIG.ART_SCALE * 100) + '% zoom\nDrag to walk';
+      heroAnim = createSpriteAnimator(HERO_SHEET, 'idle-down');
+      lastSwing = 0;
+      heroFacing = 'down';
+      // Came through a portal: appear next to the matching portal here.
+      portalArmed = false;
+      if (pendingArrival) {
+        const spot = arrivalSpot(room, pendingArrival.fromRoom, pendingArrival.toPortal);
+        if (spot) { room.player.x = spot.x; room.player.y = spot.y; }
+        nudgeOutOfBlockers(room.player, GAME_CONFIG.PLAYER_FEET, BLOCKERS, WORLD.w, WORLD.h);
+        clampBoxToWorld(room.player, WORLD.w, WORLD.h);
+        teleport = { phase: 'in', t: 0 };
+        pendingArrival = null;
+      } else teleport = null;
+      if (room.hub || name === HUB_ROOM) {           // the hub heals, and ends the run
+        resetRunShop(shop, heroState, HERO_COMBAT.maxHp); // upgrades bought this run are gone
+        heroState.hp = heroState.maxHp;
+        heroState.money = 0;                          // money is for this run only (for now)
+        runState = { rooms: {} };
+      }
+      lastView = null;
+      resetSpecialEffects(specials);
+      combat = createCombat(room, BLOCKERS, WORLD, heroState, runRoomFor(name));
+      vendorEnterRoom(shop, room.vendor, combat.active && !room.hub, room.player, BLOCKERS, WORLD, specials.owned);
+      lastPhase = combat.swarm ? combat.swarm.phase : null; lastBoss = false;
+      // this room's own text for the first time you walk in this run (room editor → Room → Text on arrival)
+      const rr = runRoomFor(name);
+      if (room.introText && !rr.introSaid) { rr.introSaid = true; setTimeout(() => talk.play(room.introText), 400); }
+      actionButton.setVisible(combat.active && actOn);
+      Object.keys(ENEMY_TYPES).forEach(k => {
+        const e = ENEMY_IMAGES[ENEMY_TYPES[k].sheet.path];
+        if (combat.active && (!e || !e.ok)) problems.push('enemy image not found — expected games/project-3/' + ENEMY_TYPES[k].sheet.path);
+      });
+      if (problems.length) reportProblem(problems.join('\n'));
+      unlockInput();
+    }
+  });
+
+  function goToRoom(roomId, x, y) {
+    transitioning = true;
+    lockInput();
+    return Engine.loadRoom(roomId, x, y)
+      .then(() => { transitioning = false; })
+      .catch(err => {
+        transitioning = false;
+        fade.fadeIn(300);
+        reportProblem('room "' + roomId + '" failed to load — ' + (err && err.message ? err.message : err));
+      });
+  }
+
+  // ==========================================================================
+  // UPDATE — move the hero in art pixels: blocked by props' blocking
+  // boxes (sliding along them), and kept on the image.
+  // ==========================================================================
+  function update(now, dt) {
+    if (!ROOM || transitioning) return;
+    const knockedOut = combat && combat.hero.ko;
+    if (teleport) {
+      teleport.t += dt;
+      if (combat) combat.hero.invuln = Math.max(combat.hero.invuln, 0.3); // can't be hit mid-teleport
+      if (teleport.phase === 'out' && teleport.t >= PORTAL.teleportTime) {
+        const p = teleport.portal;
+        pendingArrival = { fromRoom: Engine.getCurrentRoomName(), toPortal: p.toPortal };
+        teleport = null;
+        goToRoom(p.to);
+        return;
+      }
+      if (teleport.phase === 'in' && teleport.t >= PORTAL.teleportTime) teleport = null;
+    }
+    const v = now >= inputReadyAt && !knockedOut && !teleport ? input.getVector() : { x: 0, y: 0 };
+    const p = ROOM.player;
+    if (v.x || v.y) { const l = Math.hypot(v.x, v.y); heroAim = { x: v.x / l, y: v.y / l }; }
+    const speed = GAME_CONFIG.PLAYER_SPEED * Math.max(0.2, 1 + ((heroState.mods && heroState.mods.speed) || 0) / 100); // + vendor upgrades
+    moveActorWithBlockers(p, v.x * speed * dt, v.y * speed * dt,
+      GAME_CONFIG.PLAYER_FEET, BLOCKERS);
+    clampBoxToWorld(p, WORLD.w, WORLD.h);
+    if (combat) { updateCombat(combat, ROOM, p, BLOCKERS, WORLD, dt, lastView); actionButton.setCooldown(actionCooldownFraction(combat)); }
+    if (combat) updateSpecials(specials, combat, p, BLOCKERS, WORLD, dt, heroAim);
+    // walking up to the vendor opens their shop
+    updateShop(shop, p, BLOCKERS, WORLD, specials.owned, dt);
+    // loot boxes + the vendor: things to press and hold on (interact.js)
+    runClock += dt;
+    const roomName = Engine.getCurrentRoomName(), runRoom = runRoomFor(roomName);
+    if (combat && combat.active) updateLoot(ROOM, runRoom, runClock, p, BLOCKERS, WORLD);
+    interactTargets = [];
+    if (!teleport && !knockedOut) {
+      const vt = vendorTarget(shop, () => { input.cancel(); talk.playEvent('vendorBefore', () => menu.open('shop')); });
+      if (vt) interactTargets.push(vt);
+      lootRoomState(ROOM, runRoom);
+      interactTargets.push(...lootTargets(ROOM, runRoom, id => {
+        input.cancel();
+        talk.playEvent('lootBefore', () => {
+          const first = runRoom.loot[id].state === 'closed'; // the opening only plays the first time
+          openLootBox(ROOM, runRoom, id, heroState, specials, shop);
+          showLoot(roomBoxType(lootDef(ROOM, id)), roomLootSession(ROOM, runRoom, id, () => runClock), first);
+        });
+      }));
+    }
+    // moments in the fight that can have text (World Builder → Text → events)
+    if (combat && combat.swarm) {
+      const ph = combat.swarm.phase, boss = combat.enemies.some(e => e.boss && e.state !== 'dying');
+      if (boss && !lastBoss) talk.playEvent('bossAppears');
+      if (ph === 'done' && lastPhase && lastPhase !== 'done') talk.playEvent('roomCleared');
+      lastPhase = ph; lastBoss = boss;
+    }
+    updateInteract(interact, interactTargets, p, dt, keyHold);
+    hud.update(heroState, !!(combat && combat.active), combat ? swarmHudText(combat) : '');
+    // Portals: step off first, then stepping onto one starts the teleport.
+    if (!teleport && !knockedOut) {
+      const portal = portalAt(ROOM, p, portalsOpen(combat));
+      if (!portal) portalArmed = true;
+      else if (portalArmed) {
+        teleport = { phase: 'out', t: 0, portal };
+        input.cancel();
+      }
+    }
+    updateHeroAnim(v, dt);
+  }
+
+  // Picks the hero's animation from the way he's moving: the bigger of
+  // sideways vs up/down wins. Standing still keeps the last facing.
+  // Animations are named <move>-<down|side|up> (hero-data.js).
+  let lastSwing = 0; // which auto-attack swing the animation last started for
+  const facingKind = () => (heroFacing === 'left' || heroFacing === 'right' ? 'side' : heroFacing);
+  function updateHeroAnim(v, dt) {
+    if (!heroAnim) return;
+    // Knocked out: the death animation plays once.
+    if (combat && combat.hero.ko) { playSpriteAnim(heroAnim, 'death'); updateSpriteAnim(heroAnim, dt * 1000); return; }
+    // Auto-attack swing: face the enemy and play the attack (it can walk while swinging).
+    const sw = combat && combat.heroSwing;
+    if (sw && !teleport) {
+      heroFacing = sw.dir;
+      const name = HERO_SHEET.meleeMove + '-' + facingKind();
+      if (combat.swingCount !== lastSwing) { lastSwing = combat.swingCount; restartAnim(heroAnim, name); }
+      else playSpriteAnim(heroAnim, name);
+      updateSpriteAnim(heroAnim, dt * 1000);
+      return;
+    }
+    const moving = !teleport && Math.hypot(v.x, v.y) > 0.05;
+    if (moving) {
+      if (Math.abs(v.x) > Math.abs(v.y)) heroFacing = v.x < 0 ? 'left' : 'right';
+      else heroFacing = v.y < 0 ? 'up' : 'down';
+    }
+    playSpriteAnim(heroAnim, (moving ? 'walk-' : 'idle-') + facingKind());
+    updateSpriteAnim(heroAnim, dt * 1000);
+  }
+  function heroFlipped() {
+    if (heroFacing === 'left') return !HERO_SHEET.sideArtFacesLeft;
+    if (heroFacing === 'right') return HERO_SHEET.sideArtFacesLeft;
+    return false;
+  }
+
+  // ==========================================================================
+  // DRAW — all in screen pixels. Camera is worked out in art pixels, then
+  // turned into screen pixels and rounded, so the floor never shimmers.
+  // ==========================================================================
+  function draw(view) {
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.imageSmoothingEnabled = false;
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, view.devW, view.devH);
+    if (!ROOM) return;
+
+    const s = view.pxScale, p = ROOM.player;
+    const cam = computeBigRoomCamera(WORLD.w, WORLD.h, view.artW, view.artH, p.x, p.y - p.h / 2);
+    const camDev = { x: Math.round(cam.x * s), y: Math.round(cam.y * s) };
+    viewCam = { x: camDev.x, y: camDev.y, s };
+
+    drawBigRoomFloorAt(ctx, ROOM, ROOM_IMAGES[ROOM.floorImage], WORLD.w, WORLD.h, camDev, s);
+    drawPortals(ctx, ROOM, x => Math.round(x * s) - camDev.x, y => Math.round(y * s) - camDev.y, s, performance.now(), portalsOpen(combat));
+    lastView = { x: cam.x, y: cam.y, w: view.artW, h: view.artH };
+
+    // Props and hero, drawn in depth order: whoever's base is lower on the
+    // screen is drawn last (in front).
+    const toScreenX = x => Math.round(x * s) - camDev.x;
+    const toScreenY = y => Math.round(y * s) - camDev.y;
+    const items = (ROOM.props || []).map(pr => {
+      const type = ROOM.propTypes[pr.type];
+      return { y: pr.y, draw: () => drawProp(ctx, ROOM_IMAGES[type.image], type, toScreenX(pr.x), toScreenY(pr.y), s) };
+    });
+    // Hero, feet on p.x/p.y. If the sheet is missing, the blue box shows instead.
+    // Blinks while invincible after a hit.
+    const blinkOff = combat && !teleport && !combat.hero.ko && combat.hero.invuln > 0 && Math.floor(performance.now() / 80) % 2 === 0;
+    // Teleporting: he fades out (or in) inside a cyan glow.
+    const tpK = teleport ? Math.min(1, teleport.t / PORTAL.teleportTime) : 0;
+    const heroAlpha = teleport ? (teleport.phase === 'out' ? 1 - tpK : tpK) : 1;
+    if (heroAnim && !blinkOff) {
+      items.push({ y: p.y, draw: () => {
+        ctx.globalAlpha = heroAlpha;
+        drawSpriteAnim(ctx, HERO_IMAGE, heroAnim, toScreenX(p.x), toScreenY(p.y), s, heroFlipped(), { w: p.w, h: p.h, color: p.color });
+        ctx.globalAlpha = 1;
+      } });
+    }
+    if (teleport) items.push({ y: p.y + 0.5, draw: () => {
+      const cx = toScreenX(p.x), cy = toScreenY(p.y - 9);
+      for (let i = 0; i < 2; i++) {
+        const k = (tpK + i * 0.5) % 1;
+        ctx.strokeStyle = `rgba(110,235,255,${0.9 * (1 - k)})`; ctx.lineWidth = Math.max(2, s);
+        ctx.beginPath(); ctx.ellipse(cx, cy, (6 + k * 14) * s, (8 + k * 18) * s, 0, 0, Math.PI * 2); ctx.stroke();
+      }
+    } });
+    if (combat) items.push(...combatDrawItems(ctx, combat, ENEMY_IMAGES, toScreenX, toScreenY, s));
+    items.push(...specialDrawItems(ctx, specials, SPECIAL_IMAGES, toScreenX, toScreenY, s));
+    items.push(...vendorDrawItems(ctx, shop, SHOP_IMAGES, toScreenX, toScreenY, s, performance.now()));
+    items.push(...lootDrawItems(ctx, runRoomFor(Engine.getCurrentRoomName()), SHOP_IMAGES, toScreenX, toScreenY, s, ROOM));
+    if (combat) drawCoins(ctx, combat, toScreenX, toScreenY, s, performance.now()); // on the ground, under everyone
+    if (combat && combat.active) drawSpecialsUnder(ctx, specials, SPECIAL_IMAGES, p, toScreenX, toScreenY, s); // rune ring, poison splashes
+    drawDepthSorted(items);
+    if (combat) { drawBolts(ctx, combat, toScreenX, toScreenY, s); drawCombatEffects(ctx, combat, toScreenX, toScreenY, s); }
+    drawSpecialsOnTop(ctx, specials, SPECIAL_IMAGES, toScreenX, toScreenY, s);
+    drawShopOnTop(ctx, shop, SHOP_IMAGES, toScreenX, toScreenY, s, performance.now(), p, interact);
+    drawLootBars(ctx, runRoomFor(Engine.getCurrentRoomName()), SHOP_IMAGES, toScreenX, toScreenY, s, performance.now(), p, interact, ROOM);
+    // MINI MAP (hud.js): the room, the hero and the points of interest
+    const mm = [];
+    if (shop.vendor) mm.push({ x: shop.vendor.x, y: shop.vendor.y, kind: 'vendor' });
+    const rl = runRoomFor(Engine.getCurrentRoomName()).loot || {};
+    Object.keys(rl).forEach(id => { if (rl[id].state === 'closed' || rl[id].state === 'open') mm.push({ x: rl[id].x, y: rl[id].y, kind: 'loot' }); });
+    (ROOM.portals || []).forEach(pt => mm.push({ x: pt.x, y: pt.y, kind: 'portal', locked: pt.locked && !portalsOpen(combat) }));
+    if (combat) combat.enemies.forEach(e => { if (e.state !== 'dying') mm.push({ x: e.x, y: e.y, kind: 'enemy' }); });
+    hud.drawMinimap({ floor: ROOM_IMAGES[ROOM.floorImage], floorRect: getFloorRect(ROOM, ROOM_IMAGES[ROOM.floorImage], WORLD.w, WORLD.h), world: WORLD, hero: p, markers: mm });
+
+    // Testing aid: the invisible blocking boxes and the hero's feet box.
+    if (GAME_CONFIG.SHOW_BLOCKERS) {
+      ctx.lineWidth = Math.max(1, Math.floor(s / 2));
+      ctx.strokeStyle = 'rgba(255,60,60,0.9)';
+      BLOCKERS.forEach(b => ctx.strokeRect(toScreenX(b.x), toScreenY(b.y), b.w * s, b.h * s));
+      const f = feetRect(p, GAME_CONFIG.PLAYER_FEET);
+      ctx.strokeStyle = 'rgba(80,255,120,0.9)';
+      ctx.strokeRect(toScreenX(f.x), toScreenY(f.y), f.w * s, f.h * s);
+      // the auto-attack circle (meleeRadius in combat.js) — enemies whose feet are inside get hit
+      if (combat && combat.active) {
+        ctx.setLineDash([4 * s, 3 * s]); ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+        ctx.beginPath(); ctx.arc(toScreenX(p.x), toScreenY(p.y), HERO_COMBAT.meleeRadius * s, 0, Math.PI * 2); ctx.stroke();
+        ctx.setLineDash([]);
+      }
+    }
+
+    if (combat) drawCombatHud(ctx, combat, view.devW, view.devH, window.devicePixelRatio || 1);
+    drawDragIndicator();
+  }
+
+  // Faint ring where the drag started + a dot under the thumb.
+  function drawDragIndicator() {
+    const d = input.getDrag();
+    if (!d) return;
+    const k = window.devicePixelRatio || 1; // drag positions are CSS px; we're drawing in screen px
+    ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+    ctx.lineWidth = 2 * k;
+    ctx.beginPath(); ctx.arc(d.originX * k, d.originY * k, d.maxRadius * k, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.beginPath(); ctx.arc(d.x * k, d.y * k, 14 * k, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // ==========================================================================
+  // LOOP — dt in seconds, capped so a hiccup can't make the player jump.
+  // ==========================================================================
+  let lastFrameTime = null;
+  function loop(now) {
+    const dt = lastFrameTime === null ? 0 : Math.min(0.05, (now - lastFrameTime) / 1000);
+    lastFrameTime = now;
+    if (!paused) update(now, dt); // paused: the picture stays, nothing moves
+    draw(getView());
+    requestAnimationFrame(loop);
+  }
+
+  // Boot: load the hero sheet, then the first room. Add ?room=<name> to
+  // the address to start in a different room (World Builder's "Open in
+  // game" button does this).
+  const startRoom = new URLSearchParams(location.search).get('room') || GAME_CONFIG.START_ROOM;
+  const bootImages = { hero: HERO_SHEET.path + '?v=3' };
+  Object.keys(ENEMY_TYPES).forEach(k => { bootImages['enemy:' + ENEMY_TYPES[k].sheet.path] = ENEMY_TYPES[k].sheet.path; });
+  Object.keys(SPECIALS).forEach(k => { if (SPECIALS[k].sheet) bootImages['special:' + SPECIALS[k].sheet.path] = SPECIALS[k].sheet.path; });
+  bootImages['shop:' + SHOP.vendor.sheet.path] = SHOP.vendor.sheet.path;
+  bootImages['shop:' + SHOP.vendor.bubble.path] = SHOP.vendor.bubble.path;
+  if (SHOP.icons) bootImages['shop:' + SHOP.icons.path] = SHOP.icons.path; // item pictures (and loot boxes without chest art)
+  (SHOP.chests || []).forEach(c => { bootImages['shop:' + c.path] = c.path; }); // loot box chest art
+  if (SHOP.buffs) ['blue', 'green', 'orange', 'purple'].forEach(c => { if (SHOP.buffs[c]) bootImages['shop:' + SHOP.buffs[c]] = SHOP.buffs[c]; });
+  Engine.loadImages(bootImages).then(imgs => {
+    HERO_IMAGE = imgs.hero;
+    Object.keys(imgs).forEach(k => { if (k.startsWith('enemy:')) ENEMY_IMAGES[k.slice(6)] = imgs[k]; });
+    Object.keys(imgs).forEach(k => { if (k.startsWith('special:')) SPECIAL_IMAGES[k.slice(8)] = imgs[k]; });
+    Object.keys(imgs).forEach(k => { if (k.startsWith('shop:')) SHOP_IMAGES[k.slice(5)] = imgs[k]; });
+    goToRoom(startRoom);
+  });
+  requestAnimationFrame(loop);
+</script>
+</body>
+</html>
